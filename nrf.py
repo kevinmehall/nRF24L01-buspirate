@@ -1,7 +1,17 @@
+# Library to communicate with Nordic NRF24L01+ radios with BusPirate
+# (C) 2011 Kevin Mehall <km@kevinmehall.net>
+# 
+# Based on the MiRF Arduino library (C) 2007-2011
+#     Nathan Isburgh <nathan@mrroot.net>
+#     Aaron Shrimpton <aaronds@gmail.com>
+#     Stefan Engelke <mbox@stefanengelke.de>
+# Released under the terms of the MIT License
+
 import serial
 import time
 
 class BP_SPI(object):
+	"""BusPirate SPI library"""
 	def __init__(self, port):
 		self.serial = serial.Serial(port, 115200, timeout=0.1)
 		self.serial.write('\x00\x0f')
@@ -28,6 +38,7 @@ class BP_SPI(object):
 		self._cs = val
 		
 	def transfer(self, data='', size=0):
+		"""Read /size/ bytes while writing /data/"""
 		size = max(len(data), size)
 		data += (size - len(data)) * '\0'
 		self.serial.write(chr(0x10|(size-1))+data)
@@ -37,6 +48,7 @@ class BP_SPI(object):
 		return d[1:]
 		
 	def cs_transfer(self, data='', size=0):
+		"""Pull CS low, perform a transfer, and then raise CS, minimizing serial delays"""
 		size = max(len(data), size)
 		data += (size - len(data)) * '\0'
 		self.serial.write(chr(0x02)+chr(0x10|(size-1))+data+chr(0x03))
@@ -158,7 +170,8 @@ class BP_nRF(BP_SPI):
 		self.channel = channel
 		self.PTX = False
 	
-	def config(self):	
+	def config(self):
+		"""Initialize the radio and apply the channel and payload configuration"""
 		# Set RF channel
 		self.configRegister(RF_CH, self.channel)
 
@@ -171,15 +184,18 @@ class BP_nRF(BP_SPI):
 		self.flushRx()
 		
 	def setRADDR(self, adr):
+		"""Set receive (listening) address"""
 		self.set_outputs(aux=False)
 		self.writeRegister(RX_ADDR_P1, adr)
 		self.set_outputs(aux=True)
 		
 	def setTADDR(self, adr):
+		"""Set the transmit (destination) address"""
 		self.writeRegister(RX_ADDR_P0, adr)
 		self.writeRegister(TX_ADDR, adr)
 	
-	def dataReady(self): 
+	def dataReady(self):
+		"""Check whether there is data ready""""
 		status = self.getStatus()
 
 		if status & (1 << RX_DR):
@@ -188,24 +204,30 @@ class BP_nRF(BP_SPI):
 			return not self.rxFifoEmpty()
 
 	def rxFifoEmpty(self):
+		"""Returns false if the rx FIFO buffer on the radio is empty"""
 		fifoStatus = ord(self.readRegister(FIFO_STATUS))
 		return (fifoStatus & (1 << RX_EMPTY))
 	
-	def getData(self) :
+	def getData(self):
+		"""Read the received packet from the radio"""
 		data = self.cs_transfer(chr(R_RX_PAYLOAD), size=self.payload_size+1)
 		self.configRegister(STATUS,(1<<RX_DR))
 		return data[1:]
 
 	def configRegister(self, reg, value):
+		"""Write a byte to a configuration register"""
 		self.cs_transfer(chr(W_REGISTER | (REGISTER_MASK & reg)) + chr(value))
 
 	def readRegister(self, reg, size=1):
+		"""Read a configuration register"""
 		return self.cs_transfer(chr(R_REGISTER | (REGISTER_MASK & reg)), size=size+1)[1:]
 	
 	def writeRegister(self, reg, data):
+		"""Write one or more bytes to a configuration register"""
 		self.cs_transfer(chr(W_REGISTER | (REGISTER_MASK & reg))+data)
 
 	def send(self, data):
+		"""Send a packet to the configured address"""
 		while self.PTX:
 			status = self.getStatus()
 			
@@ -221,6 +243,8 @@ class BP_nRF(BP_SPI):
 			
 
 	def isSending(self):
+		"""Returns true if the radio is still sending a packet.
+		Due to USB/FTDI latency, it's not very useful"""
 		if self.PTX:
 			status = self.getStatus()
 			if status & ((1 << TX_DS)  | (1 << MAX_RT)):
@@ -233,9 +257,11 @@ class BP_nRF(BP_SPI):
 			
 
 	def getStatus(self):
+		"""Returns the status register of the radio"""
 		return ord(self.readRegister(STATUS))
 		
 	def powerUpRx(self):
+		"""Put the radio in receive mode"""
 		self.PTX = 0
 		self.set_outputs(aux=0)
 		self.configRegister(CONFIG, mirf_CONFIG | ( (1<<PWR_UP) | (1<<PRIM_RX) ) )
@@ -243,14 +269,17 @@ class BP_nRF(BP_SPI):
 		self.configRegister(STATUS,(1 << TX_DS) | (1 << MAX_RT))
 
 	def flushRx(self):
+		"""Clear the receive buffers"""
 		self.cs_transfer(chr(FLUSH_RX))
 	
 	def powerUpTx(self):
+		"""Put the radio in transmit mode"""
 		self.PTX = 1
 		self.configRegister(CONFIG, mirf_CONFIG | ( (1<<PWR_UP) | (0<<PRIM_RX) ))
 
 
 	def powerDown(self):
+		"""Disable the radio"""
 		self.set_outputs(aux=0)
 		self.configRegister(CONFIG, mirf_CONFIG)	
 	
