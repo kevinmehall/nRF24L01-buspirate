@@ -209,8 +209,6 @@ class BP_nRF(BP_SPI):
 		while self.PTX:
 			status = self.getStatus()
 			
-			print 'send status', bin(status)
-			
 			if status & ((1 << TX_DS)  | (1 << MAX_RT)):
 				self.PTX = 0
 				break
@@ -259,10 +257,9 @@ class BP_nRF(BP_SPI):
 		
 		
 if __name__ == '__main__':
-	bp = BP_nRF('/dev/ttyUSB1')
+	bp = BP_nRF('/dev/ttyUSB0')
 
 	bp.set_outputs(power=True)
-	
 	time.sleep(0.1)
 	
 	bp.setRADDR('clie1')
