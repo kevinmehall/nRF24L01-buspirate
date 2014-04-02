@@ -1,6 +1,6 @@
 # Library to communicate with Nordic NRF24L01+ radios with BusPirate
 # (C) 2011 Kevin Mehall <km@kevinmehall.net>
-# 
+#
 # Based on the MiRF Arduino library (C) 2007-2011
 #     Nathan Isburgh <nathan@mrroot.net>
 #     Aaron Shrimpton <aaronds@gmail.com>
@@ -22,21 +22,21 @@ class BP_SPI(object):
 		self.serial.write('\0'*20 + chr(0x01))
 		self.serial.flush()
 		time.sleep(0.1)
-		
+
 		i = self.serial.read(self.serial.inWaiting())
 		if not i.endswith("SPI1"):
 			raise IOError("Could not initialize BusPirate")
-			
+
 		self._power = False
 		self._pullup = False
 		self._aux = False
 		self._cs = False
-	
+
 	def setCS(self, val):
 		self.serial.write(chr(0x02 | bool(val)))
 		assert(self.serial.read(1) == chr(1))
 		self._cs = val
-		
+
 	def transfer(self, data='', size=0):
 		"""Read /size/ bytes while writing /data/"""
 		size = max(len(data), size)
@@ -46,7 +46,7 @@ class BP_SPI(object):
 		d = self.serial.read(size+1)
 		assert(d[0] == chr(1))
 		return d[1:]
-		
+
 	def cs_transfer(self, data='', size=0):
 		"""Pull CS low, perform a transfer, and then raise CS, minimizing serial delays"""
 		size = max(len(data), size)
@@ -56,7 +56,7 @@ class BP_SPI(object):
 		d = self.serial.read(size+3)
 		assert (d[0] == chr(1) and d[1] == chr(1) and d[-1] == chr(1))
 		return d[2:-1]
-		
+
 	def set_outputs(self, power=None, pullup=None, aux=None, cs=None):
 		if power is None:  power = self._power
 		if pullup is None: pullup = self._pullup
@@ -69,7 +69,7 @@ class BP_SPI(object):
 			  | bool(cs)))
 		assert(self.serial.read(1) == chr(1))
 		self._power, self._pullup, self._aux, self._cs = power, pullup, aux, cs
-		
+
 	def set_mode(self, power, ckp, cke, smp):
 		self.serial.write(chr(0x80
 			  | (bool(power) << 3)
@@ -155,11 +155,9 @@ FLUSH_RX = 0xE2
 REUSE_TX_PL = 0xE3
 NOP = 0xFF
 
-
 mirf_ADDR_LEN = 5
 mirf_CONFIG = ((1<<EN_CRC) | (0<<CRCO) )
 
-		
 class BP_nRF(BP_SPI):
 	#csn = cs, ce = AUX
 	def __init__(self, port, payload_size=15, channel=23):
@@ -169,7 +167,7 @@ class BP_nRF(BP_SPI):
 		self.payload_size = payload_size
 		self.channel = channel
 		self.PTX = False
-	
+
 	def config(self):
 		"""Initialize the radio and apply the channel and payload configuration"""
 		# Set RF channel
@@ -182,18 +180,18 @@ class BP_nRF(BP_SPI):
 		#Start receiver 
 		self.powerUpRx()
 		self.flushRx()
-		
+
 	def setRADDR(self, adr):
 		"""Set receive (listening) address"""
 		self.set_outputs(aux=False)
 		self.writeRegister(RX_ADDR_P1, adr)
 		self.set_outputs(aux=True)
-		
+
 	def setTADDR(self, adr):
 		"""Set the transmit (destination) address"""
 		self.writeRegister(RX_ADDR_P0, adr)
 		self.writeRegister(TX_ADDR, adr)
-	
+
 	def dataReady(self):
 		"""Check whether there is data ready"""
 		status = self.getStatus()
@@ -240,7 +238,6 @@ class BP_nRF(BP_SPI):
 		self.cs_transfer(chr(FLUSH_TX))
 		self.cs_transfer(chr(W_TX_PAYLOAD) + data, size=self.payload_size+1)
 		self.set_outputs(aux=True)
-			
 
 	def isSending(self):
 		"""Returns true if the radio is still sending a packet.
@@ -254,12 +251,11 @@ class BP_nRF(BP_SPI):
 				return True
 		else:
 			return False
-			
 
 	def getStatus(self):
 		"""Returns the status register of the radio"""
 		return ord(self.readRegister(STATUS))
-		
+
 	def powerUpRx(self):
 		"""Put the radio in receive mode"""
 		self.PTX = 0
@@ -271,50 +267,45 @@ class BP_nRF(BP_SPI):
 	def flushRx(self):
 		"""Clear the receive buffers"""
 		self.cs_transfer(chr(FLUSH_RX))
-	
+
 	def powerUpTx(self):
 		"""Put the radio in transmit mode"""
 		self.PTX = 1
 		self.configRegister(CONFIG, mirf_CONFIG | ( (1<<PWR_UP) | (0<<PRIM_RX) ))
 
-
 	def powerDown(self):
 		"""Disable the radio"""
 		self.set_outputs(aux=0)
-		self.configRegister(CONFIG, mirf_CONFIG)	
-	
-		
-		
+		self.configRegister(CONFIG, mirf_CONFIG)
+
 if __name__ == '__main__':
 	bp = BP_nRF('/dev/ttyUSB0')
 
 	bp.set_outputs(power=True)
 	time.sleep(0.1)
-	
+
 	bp.setRADDR('clie1')
 	bp.config()
-	
+
 	print 'status', bin(bp.getStatus())
-	
+
 	c = 0
-	
+
 	while 1:
 		bp.setTADDR('serv1')
 		bp.send(str(c)+"test!")
-	
+
 		print c, bin(bp.getStatus()), bp.isSending()
-		
+
 		if bp.dataReady():
 			print 'received', bp.getData()
-		
+
 		c = (c+1)%100
-		
+
 		time.sleep(1)
-		
-	
+
 	print 'status', bin(bp.getStatus())
-	
+
 	time.sleep(0.1)
-	
+
 	bp.set_outputs(power=False)
-	
