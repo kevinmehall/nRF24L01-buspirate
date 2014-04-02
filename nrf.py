@@ -195,7 +195,7 @@ class BP_nRF(BP_SPI):
 		self.writeRegister(TX_ADDR, adr)
 	
 	def dataReady(self):
-		"""Check whether there is data ready""""
+		"""Check whether there is data ready"""
 		status = self.getStatus()
 
 		if status & (1 << RX_DR):
