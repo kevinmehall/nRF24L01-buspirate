@@ -61,7 +61,7 @@ class BP_SPI(object):
 		if power is None:  power = self._power
 		if pullup is None: pullup = self._pullup
 		if aux is None:	aux = self._aux
-		if cs is None:	 cs = self._cs 
+		if cs is None:	 cs = self._cs
 		self.serial.write(chr(0x40
 			  | (bool(power) << 3)
 			  | (bool(pullup) << 2)
@@ -144,7 +144,7 @@ TX_EMPTY = 4
 RX_FULL = 1
 RX_EMPTY = 0
 
-# Instruction Mnemonics 
+# Instruction Mnemonics
 R_REGISTER = 0x00
 W_REGISTER = 0x20
 REGISTER_MASK = 0x1F
@@ -173,11 +173,11 @@ class BP_nRF(BP_SPI):
 		# Set RF channel
 		self.configRegister(RF_CH, self.channel)
 
-		# Set length of incoming payload 
+		# Set length of incoming payload
 		self.configRegister(RX_PW_P0, self.payload_size)
 		self.configRegister(RX_PW_P1, self.payload_size)
 
-		#Start receiver 
+		#Start receiver
 		self.powerUpRx()
 		self.flushRx()
 
@@ -205,7 +205,7 @@ class BP_nRF(BP_SPI):
 		"""Returns false if the rx FIFO buffer on the radio is empty"""
 		fifoStatus = ord(self.readRegister(FIFO_STATUS))
 		return (fifoStatus & (1 << RX_EMPTY))
-	
+
 	def getData(self):
 		"""Read the received packet from the radio"""
 		data = self.cs_transfer(chr(R_RX_PAYLOAD), size=self.payload_size+1)
@@ -219,7 +219,7 @@ class BP_nRF(BP_SPI):
 	def readRegister(self, reg, size=1):
 		"""Read a configuration register"""
 		return self.cs_transfer(chr(R_REGISTER | (REGISTER_MASK & reg)), size=size+1)[1:]
-	
+
 	def writeRegister(self, reg, data):
 		"""Write one or more bytes to a configuration register"""
 		self.cs_transfer(chr(W_REGISTER | (REGISTER_MASK & reg))+data)
@@ -228,11 +228,11 @@ class BP_nRF(BP_SPI):
 		"""Send a packet to the configured address"""
 		while self.PTX:
 			status = self.getStatus()
-			
+
 			if status & ((1 << TX_DS)  | (1 << MAX_RT)):
 				self.PTX = 0
 				break
-			
+
 		self.set_outputs(aux=False)
 		self.powerUpTx()
 		self.cs_transfer(chr(FLUSH_TX))
